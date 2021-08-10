@@ -52,8 +52,10 @@ var app = new Vue({
     CIRCLE_RADIUS: 2,
     STROKE_WIDTH: 2,
     MONTH_WIDTH: 45,
-    NUM_RANKINGS: 50,
-    LABEL_X_POSITION: 500,
+    NUM_RANKINGS: 30,
+    LABEL_X_WIDTH: 250,
+    LABEL_X_POSITION: null,
+    MAX_NAME_LABEL_LENGTH: 30,
   },
   mounted: function() {
     var self = this;
@@ -124,16 +126,18 @@ var app = new Vue({
     //   .attr("width", "100%");
 
     // set the dimensions and margins of the graph
-    var nameBoxWidth
     var margin = {top: 30, right: 30, bottom: 30, left: 30};
 
     var width = $("#viz-container").width() - margin.left - margin.right;
     var height = $("#viz-container").height() - margin.top - margin.bottom;
 
+    self.LABEL_X_POSITION = width - self.LABEL_X_WIDTH + margin.left;
+    // self.LABEL_X_POSITION = width / 2;
+
     // append the svg object to the body of the page
     var svg = d3.select("#viz-container")
       .append("svg")
-        .style("background-color", "#222")
+        .style("background-color", "#333")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
 
@@ -197,14 +201,15 @@ var app = new Vue({
 
     var viewport = svg.append("svg")
       .attr("x", margin.left)
-      .attr("y", margin.top)
-      .attr("height", height);
+      .attr("y", 0)
+      .attr("height", height + margin.top);
       // .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
     var xAxisViewport = svg.append("svg")
       .attr("x", margin.left)
       .attr("y", margin.top);
 
     container = viewport.append("g")
+      .attr("transform", "translate(0, " + margin.top + ")")
     /* Invoke the tip in the context of your visualization */
     svg.call(tip);
 
@@ -243,14 +248,13 @@ var app = new Vue({
 
     var gX = xAxisViewport.append("g").call(xAxis, self.xScale);
 
-    var graph = container.append("svg").append("g");
+    var graph = container.append("g");
     var namesGroup = svg.append("g");
 
     var currentStartTime = allMonths[0];
     var NAME_DISPLAY_BASE_INDEX = 0; // Where to show the tip
 
     function redrawNameBoxes() {
-
       var currentStartTime = self.xScaleTransformed.invert(self.LABEL_X_POSITION);
 
       // Set to start of current month
@@ -289,9 +293,9 @@ var app = new Vue({
       // var yVal = path.getPointAtLength(currentXDelta);
       // console.log(yVal, currentXDelta);
 
-      var nameBoxHeight = 20;
-      var nameBoxMarginLeft = 20;
-      var nameBoxWidth = margin.left - nameBoxMarginLeft;
+      // var nameBoxHeight = 20;
+      // var nameBoxMarginLeft = 20;
+      // var nameBoxWidth = 300;
       // nameBoxes.append("rect")
       //   // .attr('x', function(d) { return self.xScaleTransformed(d.date) - nameBoxWidth/2; })
       //   .attr('x', function(d) { return margin.left - nameBoxWidth - nameBoxMarginLeft; })
@@ -317,14 +321,32 @@ var app = new Vue({
           return "translate(" + x + ", " + y + ")";
         });
 
+      // nameBoxesEnter.append("rect")
+     //   .attr('x', -nameBoxWidth)
+      //   .attr('y', -nameBoxHeight/2)
+      //   .attr('width', nameBoxWidth)
+      //   .attr('height', nameBoxHeight)
+      //   .attr('fill-opacity', 0.7)
+      //   .attr('fill', '#000000');
+
+      function truncated(name) {
+        if (name.length > self.MAX_NAME_LABEL_LENGTH) {
+          return name.substring(0, self.MAX_NAME_LABEL_LENGTH) + "...";
+        }
+        return name;
+      }
+
       nameBoxesEnter.append("text")
           .attr("class", "graph-names")
+          .attr("dx", 12)
+          .attr("dy", -2)
           .style("dominant-baseline", "central")
-          .style("text-anchor", "end")
+          .style("text-anchor", "start")
           .style("cursor", "default")
           .style("fill", function(d) { return colorDict[d.bgg_id];})
+          // .style("fill", "white")
           .text(function(d) {
-            return d.name;
+            return truncated(d.name);
           })
           .on('mouseover', function(event, d) {
             self.focusSingleBoardgame(d.bgg_id);
@@ -333,21 +355,15 @@ var app = new Vue({
             self.showAllBoardgames();
           });
 
-      nameBoxesEnter.append("text")
-          .attr("class", "graph-names")
-          .style("dominant-baseline", "central")
-          .style("text-anchor", "end")
-          .style("cursor", "default")
-          .style("fill", function(d) { return colorDict[d.bgg_id];})
-          .text(function(d) {
-            return d.name;
-          })
-          .on('mouseover', function(event, d) {
-            self.focusSingleBoardgame(d.bgg_id);
-          })
-          .on('mouseout', function(event, d) {
-            self.showAllBoardgames();
-          });
+      nameBoxesEnter.append("circle")
+        .attr("class", "namebox-circle")
+        .attr("fill", function(d) {
+          return colorDict[d.bgg_id];
+        })
+        .attr("stroke", function(d) {
+          return colorDict[d.bgg_id];
+        })
+        .attr("r", 4);
 
       nameBoxes.exit().remove();
     }
@@ -359,7 +375,7 @@ var app = new Vue({
     var prevEndDate = allMonths[0];
 
     var zoom = d3.zoom()
-      .translateExtent([[0, -Infinity], [width, Infinity]])
+      .translateExtent([[0, -Infinity], [width*2-self.LABEL_X_POSITION, Infinity]])
       .scaleExtent([1,10])
       .extent([[0, 0], [width, height]])
       .on('zoom', function(event) {
@@ -498,6 +514,16 @@ var app = new Vue({
     self.colorDict = colorDict;
 
     self.redraw(data);
+
+// Draw background for nameboxes
+    self.graph.append("rect")
+      .attr('x', self.LABEL_X_POSITION)
+      .attr('y', -20)
+      .attr('width', self.LABEL_X_WIDTH)
+      .attr('height', height+40)
+      .attr('fill-opacity', 0.80)
+      .attr('fill', '#222');
+
     redrawNameBoxes();
   },
   methods: {
