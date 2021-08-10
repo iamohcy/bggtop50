@@ -1,0 +1,13 @@
+html, body
+{
+    height: 100%;
+}
+
+#main {
+  height:  100%;
+}
+
+#viz-container {
+  height:  100%;
+  width: 100%;
+}
