@@ -22,10 +22,10 @@ with open('all_data.csv', 'r') as read_obj:
 
     final_dict = {}
     for item in filtered_item_list:
-      if item["name"] not in final_dict:
-        final_dict[item["name"]] = []
+      if item["bgg_id"] not in final_dict:
+        final_dict[item["bgg_id"]] = []
 
-      final_dict[item["name"]].append(item)
+      final_dict[item["bgg_id"]].append(item)
 
 with open('data.js', 'w') as f:
     json.dump(final_dict, f)

@@ -52,10 +52,10 @@ var app = new Vue({
     CIRCLE_RADIUS: 2,
     STROKE_WIDTH: 2,
     MONTH_WIDTH: 45,
-    NUM_RANKINGS: 30,
-    LABEL_X_WIDTH: 250,
+    NUM_RANKINGS: 40,
+    LABEL_X_WIDTH: 200,
     LABEL_X_POSITION: null,
-    MAX_NAME_LABEL_LENGTH: 30,
+    MAX_NAME_LABEL_LENGTH: 25,
   },
   mounted: function() {
     var self = this;
@@ -131,13 +131,13 @@ var app = new Vue({
     var width = $("#viz-container").width() - margin.left - margin.right;
     var height = $("#viz-container").height() - margin.top - margin.bottom;
 
-    self.LABEL_X_POSITION = width - self.LABEL_X_WIDTH + margin.left;
-    // self.LABEL_X_POSITION = width / 2;
+    // self.LABEL_X_POSITION = width - self.LABEL_X_WIDTH + margin.left;
+    self.LABEL_X_POSITION = width / 2;
 
     // append the svg object to the body of the page
     var svg = d3.select("#viz-container")
       .append("svg")
-        .style("background-color", "#333")
+        .style("background-color", "#2a2a2a")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
 
@@ -266,6 +266,26 @@ var app = new Vue({
 
       // console.log(nameDisplayMonth == allMonths[0]);
       var gamesThisMonth = allDataByMonth[nameDisplayMonth];
+
+      // cannot find, likely due to weird date, e.g. 1 jul 11 to 29 jul 11, instead of to 1 aug 11
+      var count = 0;
+      if (gamesThisMonth == undefined) {
+        nameDisplayMonth = new Date(currentStartTime.getTime());
+        nameDisplayMonth.setHours(0,0,0,0);
+
+        // Search a maximum of two months back, day by day
+        while (count < 60) {
+          count += 1;
+          if (allDataByMonth[nameDisplayMonth]) {
+            gamesThisMonth = allDataByMonth[nameDisplayMonth];
+            break;
+          }
+          else {
+            nameDisplayMonth.setDate(nameDisplayMonth.getDate() - 1);
+          }
+        }
+      }
+
       var nameBoxes = namesGroup.selectAll("g")
         .data(gamesThisMonth, function(d) {
           return d.bgg_id;
@@ -288,25 +308,12 @@ var app = new Vue({
           return "translate(" + x + ", " + y + ")";
         })
 
-      // var path = d3.select("#graph-path-" + gamesThisMonth[0].bgg_id).node();
-      // var path = d3.select("#graph-path-3076").node();
-      // var yVal = path.getPointAtLength(currentXDelta);
-      // console.log(yVal, currentXDelta);
-
-      // var nameBoxHeight = 20;
-      // var nameBoxMarginLeft = 20;
-      // var nameBoxWidth = 300;
-      // nameBoxes.append("rect")
-      //   // .attr('x', function(d) { return self.xScaleTransformed(d.date) - nameBoxWidth/2; })
-      //   .attr('x', function(d) { return margin.left - nameBoxWidth - nameBoxMarginLeft; })
-      //   .attr('y', function(d) { return self.yScale(d.rank) - nameBoxHeight/2 + margin.top; })
-      //   .attr('width', nameBoxWidth)
-      //   .attr('height', nameBoxHeight)
-      //   .attr('stroke', 'black')
-      //   .attr('fill', '#FFFFFF');
-
       var nameBoxesEnter = nameBoxes.enter()
         .append("g")
+        .attr("class", "name-box")
+        .attr("id", function(d) {
+          return "name-box-" + d.bgg_id;
+        })
         .attr("transform", function(d) {
           var x = margin.left + self.LABEL_X_POSITION;
           var initialX = self.xScaleTransformed(d.date);
@@ -321,13 +328,19 @@ var app = new Vue({
           return "translate(" + x + ", " + y + ")";
         });
 
-      // nameBoxesEnter.append("rect")
-     //   .attr('x', -nameBoxWidth)
-      //   .attr('y', -nameBoxHeight/2)
-      //   .attr('width', nameBoxWidth)
-      //   .attr('height', nameBoxHeight)
-      //   .attr('fill-opacity', 0.7)
-      //   .attr('fill', '#000000');
+      var nameBoxHeight = 20;
+      var nameBoxMarginLeft = 20;
+      var nameBoxWidth = self.LABEL_X_WIDTH;
+      nameBoxesEnter.append("rect")
+        .attr('x', 9)
+        .attr('y', -nameBoxHeight/2)
+        .attr("rx", 6)
+        .attr("ry", 6)
+        .attr('width', nameBoxWidth)
+        .attr('height', nameBoxHeight)
+        .attr('fill-opacity', 0.7)
+        .attr('stroke', "white")
+        .attr('fill', '#222');
 
       function truncated(name) {
         if (name.length > self.MAX_NAME_LABEL_LENGTH) {
@@ -338,11 +351,13 @@ var app = new Vue({
 
       nameBoxesEnter.append("text")
           .attr("class", "graph-names")
-          .attr("dx", 12)
-          .attr("dy", -2)
+          .attr("dx", 16)
+          .attr("dy", 0)
           .style("dominant-baseline", "central")
           .style("text-anchor", "start")
           .style("cursor", "default")
+          .style("font-family", "Arial, Helvetica, sans-serif")
+          .style("font-size", "0.9em")
           .style("fill", function(d) { return colorDict[d.bgg_id];})
           // .style("fill", "white")
           .text(function(d) {
@@ -375,7 +390,7 @@ var app = new Vue({
     var prevEndDate = allMonths[0];
 
     var zoom = d3.zoom()
-      .translateExtent([[0, -Infinity], [width*2-self.LABEL_X_POSITION, Infinity]])
+      .translateExtent([[-self.LABEL_X_POSITION, -Infinity], [width*2-self.LABEL_X_POSITION, Infinity]])
       .scaleExtent([1,10])
       .extent([[0, 0], [width, height]])
       .on('zoom', function(event) {
@@ -516,13 +531,13 @@ var app = new Vue({
     self.redraw(data);
 
 // Draw background for nameboxes
-    self.graph.append("rect")
-      .attr('x', self.LABEL_X_POSITION)
-      .attr('y', -20)
-      .attr('width', self.LABEL_X_WIDTH)
-      .attr('height', height+40)
-      .attr('fill-opacity', 0.80)
-      .attr('fill', '#222');
+    // self.graph.append("rect")
+    //   .attr('x', self.LABEL_X_POSITION)
+    //   .attr('y', -20)
+    //   .attr('width', self.LABEL_X_WIDTH)
+    //   .attr('height', height+40)
+    //   .attr('fill-opacity', 0.80)
+    //   .attr('fill', '#222');
 
     redrawNameBoxes();
   },
@@ -533,17 +548,21 @@ var app = new Vue({
       d3.selectAll(".graph-path").attr('stroke-opacity', "0.1");
       d3.selectAll(".graph-circle").attr('opacity', "0.1");
       d3.selectAll(".graph-names").attr('opacity', "0.1");
+      d3.selectAll(".name-box").style('display', "none");
       // d3.selectAll(".graph-path").attr('stroke-opacity', "0.1");
       // d3.selectAll(".graph-circle").attr('opacity', "0.1");
       // d3.selectAll(".graph-names").attr('opacity', "0.1");
 
-      d3.selectAll(".graph-circle").filter(function(d2, i) {
-          return d2.bgg_id == bgg_id;
-        }).attr('opacity', "1");
+      // d3.selectAll(".graph-circle").filter(function(d2, i) {
+      //     return d2.bgg_id == bgg_id;
+      //   }).attr('opacity', "1");
       d3.selectAll(".graph-names").filter(function(d2, i) {
           return d2.bgg_id == bgg_id;
         }).attr('opacity', "1");
-      // d3.select(this).attr('stroke', '#ffffff');
+      d3.selectAll(".name-box").filter(function(d2, i) {
+          return d2.bgg_id == bgg_id;
+        }).style('display', "block");
+
 
       d3.select("#graph-path-" + bgg_id).attr('stroke-opacity', 1.0);
       d3.select("#graph-path-" + bgg_id).attr('stroke-width', self.STROKE_WIDTH + 1);
@@ -554,6 +573,8 @@ var app = new Vue({
       d3.selectAll(".graph-path").attr('stroke-opacity', "1");
       d3.selectAll(".graph-circle").attr('opacity', "1");
       d3.selectAll(".graph-names").attr('opacity', "1");
+      d3.selectAll(".name-box").style('display', "block");
+
       // d3.selectAll(".graph-path").attr('stroke-opacity', "1");
       // d3.selectAll(".graph-circle").attr('opacity', "1");
       d3.selectAll(".graph-names").attr('opacity', "1");
